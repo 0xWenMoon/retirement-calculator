@@ -1,8 +1,11 @@
+// ─── Chart instances ─────────────────────────────────────────────────────────
+let chartInstances = {};
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 const state = {
   currentStep: 1,
-  totalSteps: 4,
+  totalSteps: 3,
   inputs: {
     currentAge: 30,
     netWorth: 0,
@@ -254,10 +257,6 @@ function collectInputs() {
       state.inputs.annualIncome = parseMoneyInput(document.getElementById('annualIncome').value);
       state.inputs.earningYears = parseInt(document.getElementById('earningYears').value) || 0;
     }
-  } else if (s === 4) {
-    state.inputs.growthRate = (parseFloat(document.getElementById('growthRate').value) || 7) / 100;
-    state.inputs.withdrawalRate = (parseFloat(document.getElementById('withdrawalRate').value) || 3.5) / 100;
-    state.inputs.modelToAge = parseInt(document.getElementById('modelToAge').value) || 90;
   }
 }
 
@@ -267,7 +266,7 @@ function renderStep() {
   const container = document.getElementById('app');
   updateProgressBar();
 
-  const stepRenderers = [null, renderStep1, renderStep2, renderStep3, renderStep4];
+  const stepRenderers = [null, renderStep1, renderStep2, renderStep3];
   const html = stepRenderers[state.currentStep]();
 
   document.getElementById('step-content').innerHTML = html;
@@ -375,7 +374,7 @@ function renderStep3() {
         </div>
       </div>
     </div>
-    ${stepButtons(true, true)}
+    ${stepButtons(true, true, 'Calculate')}
   `;
 }
 
@@ -432,11 +431,8 @@ function toggleEarning(val) {
 
 // ─── Results ──────────────────────────────────────────────────────────────────
 
-function showResults() {
-  const r = computeResults();
-  state.results = r;
-
-  const verdictConfig = {
+function verdictHTML(r) {
+  const config = {
     green: {
       cls: 'verdict-green',
       icon: '✦',
@@ -446,7 +442,7 @@ function showResults() {
     amber: {
       cls: 'verdict-amber',
       icon: '◈',
-      title: r.yearsToFire !== null ? `${r.yearsToFire} more year${r.yearsToFire === 1 ? '' : 's'} of earning needed.` : 'Keep earning — you\'re on track.',
+      title: r.yearsToFire !== null ? `${r.yearsToFire} more year${r.yearsToFire === 1 ? '' : 's'} of earning needed.` : "Keep earning — you're on track.",
       subtitle: r.yearsToFire !== null
         ? `At your current income and savings rate, you reach FIRE in ${r.yearsToFire} year${r.yearsToFire === 1 ? '' : 's'}.`
         : `Your projected net worth at retirement may not clear the constraint — review below.`,
@@ -458,47 +454,55 @@ function showResults() {
       subtitle: `Your current trajectory doesn't reach the minimum nest egg. Increase income, reduce spend, or extend your earning years.`,
     },
   };
+  const v = config[r.verdict];
+  return `
+    <div class="verdict-banner ${v.cls}">
+      <div class="verdict-icon">${v.icon}</div>
+      <div>
+        <div class="verdict-title">${v.title}</div>
+        <div class="verdict-sub">${v.subtitle}</div>
+      </div>
+    </div>`;
+}
 
-  const v = verdictConfig[r.verdict];
-  const wr = r.effectiveWithdrawalRate;
-  const wrFlag = wr > r.inputs.withdrawalRate;
+function metricsHTML(r) {
+  return `
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Minimum nest egg needed</div>
+        <div class="metric-value">${fmt(r.minNestEgg)}</div>
+      </div>
+      <div class="metric-card ${r.gap > 0 ? 'metric-red' : 'metric-green'}">
+        <div class="metric-label">${r.gap > 0 ? 'Gap to FIRE' : 'Surplus above FIRE'}</div>
+        <div class="metric-value">${fmt(Math.abs(r.gap))}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Peak nest egg floor</div>
+        <div class="metric-value">${fmt(r.peakFloor)}</div>
+        <div class="metric-sub">Required at peak spending age</div>
+      </div>
+      ${r.projectedAtRetire !== null ? `
+      <div class="metric-card ${r.projectedAtRetire >= r.minNestEgg ? 'metric-green' : 'metric-red'}">
+        <div class="metric-label">Projected net worth at end of earning</div>
+        <div class="metric-value">${fmt(r.projectedAtRetire)}</div>
+        <div class="metric-sub">After ${r.inputs.earningYears} yr${r.inputs.earningYears !== 1 ? 's' : ''} earning</div>
+      </div>` : ''}
+    </div>`;
+}
+
+function showResults() {
+  const r = computeResults();
+  state.results = r;
 
   const html = `
     <div class="results-container" id="results-page">
       <div class="results-header">
         <button class="btn-ghost" onclick="resetApp()">← Recalculate</button>
-        <h1 class="brand">Retirement Calculator</h1>
+        <h1 class="brand">Retirement <span>Calculator</span></h1>
       </div>
 
-      <div class="verdict-banner ${v.cls}">
-        <div class="verdict-icon">${v.icon}</div>
-        <div>
-          <div class="verdict-title">${v.title}</div>
-          <div class="verdict-sub">${v.subtitle}</div>
-        </div>
-      </div>
-
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">Minimum nest egg needed</div>
-          <div class="metric-value">${fmt(r.minNestEgg)}</div>
-        </div>
-        <div class="metric-card ${r.gap > 0 ? 'metric-red' : 'metric-green'}">
-          <div class="metric-label">${r.gap > 0 ? 'Gap to FIRE' : 'Surplus above FIRE'}</div>
-          <div class="metric-value">${fmt(Math.abs(r.gap))}</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Peak nest egg floor</div>
-          <div class="metric-value">${fmt(r.peakFloor)}</div>
-          <div class="metric-sub">Required at peak spending age</div>
-        </div>
-        ${r.projectedAtRetire !== null ? `
-        <div class="metric-card ${r.projectedAtRetire >= r.minNestEgg ? 'metric-green' : 'metric-red'}">
-          <div class="metric-label">Projected net worth at end of earning</div>
-          <div class="metric-value">${fmt(r.projectedAtRetire)}</div>
-          <div class="metric-sub">After ${r.inputs.earningYears} yr${r.inputs.earningYears !== 1 ? 's' : ''} earning</div>
-        </div>` : ''}
-      </div>
+      <div id="verdict-wrap">${verdictHTML(r)}</div>
+      <div id="metrics-wrap">${metricsHTML(r)}</div>
 
       <div class="charts-grid">
         <div class="chart-card">
@@ -512,17 +516,29 @@ function showResults() {
       </div>
 
       <div class="assumptions-block">
-        <div class="assumptions-title">Model assumptions</div>
-        <div class="assumptions-grid">
-          <div><span class="a-label">Current age</span><span>${r.inputs.currentAge}</span></div>
-          <div><span class="a-label">Monthly spend</span><span>${fmt(r.inputs.currentSpend)}/mo</span></div>
-          <div><span class="a-label">Peak monthly spend</span><span>${fmt(r.inputs.peakSpend)}/mo</span></div>
-          <div><span class="a-label">Portfolio growth</span><span>${fmtPct(r.inputs.growthRate)}/yr</span></div>
-          <div><span class="a-label">Withdrawal cap</span><span>${fmtPct(r.inputs.withdrawalRate)}</span></div>
-          <div><span class="a-label">Modelled to age</span><span>${r.inputs.modelToAge}</span></div>
-          ${r.inputs.isEarning ? `
-          <div><span class="a-label">Annual income</span><span>${fmt(r.inputs.annualIncome)}</span></div>
-          <div><span class="a-label">Earning years</span><span>${r.inputs.earningYears}</span></div>` : ''}
+        <div class="assumptions-title">Adjust assumptions</div>
+        <div class="assumptions-sliders">
+          <div class="form-group">
+            <label>Portfolio growth rate</label>
+            <div class="slider-row">
+              <input type="range" id="a-growthRate" min="2" max="15" step="0.5" value="${(r.inputs.growthRate * 100).toFixed(1)}" oninput="document.getElementById('a-growthDisplay').textContent=this.value+'%';refreshResults()">
+              <span class="slider-val" id="a-growthDisplay">${(r.inputs.growthRate * 100).toFixed(1)}%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Max withdrawal rate cap</label>
+            <div class="slider-row">
+              <input type="range" id="a-withdrawalRate" min="2" max="6" step="0.1" value="${(r.inputs.withdrawalRate * 100).toFixed(1)}" oninput="document.getElementById('a-wdDisplay').textContent=this.value+'%';refreshResults()">
+              <span class="slider-val" id="a-wdDisplay">${(r.inputs.withdrawalRate * 100).toFixed(1)}%</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Model to age</label>
+            <div class="slider-row">
+              <input type="range" id="a-modelToAge" min="75" max="100" value="${r.inputs.modelToAge}" oninput="document.getElementById('a-ageToDisplay').textContent=this.value;refreshResults()">
+              <span class="slider-val" id="a-ageToDisplay">${r.inputs.modelToAge}</span>
+            </div>
+          </div>
         </div>
         <div class="spending-curve-note">
           Spending curve: ramps from ${fmt(r.inputs.currentSpend)}/mo → ${fmt(r.inputs.peakSpend)}/mo by 35,
@@ -538,6 +554,29 @@ function showResults() {
   document.getElementById('results').innerHTML = html;
   document.getElementById('results').style.display = 'block';
 
+  renderCharts(r);
+}
+
+function refreshResults() {
+  // Read assumption sliders back into state
+  const g = document.getElementById('a-growthRate');
+  const w = document.getElementById('a-withdrawalRate');
+  const m = document.getElementById('a-modelToAge');
+  if (!g || !w || !m) return;
+
+  state.inputs.growthRate = parseFloat(g.value) / 100;
+  state.inputs.withdrawalRate = parseFloat(w.value) / 100;
+  state.inputs.modelToAge = parseInt(m.value);
+
+  const r = computeResults();
+  state.results = r;
+
+  document.getElementById('verdict-wrap').innerHTML = verdictHTML(r);
+  document.getElementById('metrics-wrap').innerHTML = metricsHTML(r);
+
+  // Destroy old charts before redrawing
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
   renderCharts(r);
 }
 
@@ -564,7 +603,7 @@ function renderCharts(r) {
   Chart.defaults.font.family = "'DM Sans', sans-serif";
 
   // Portfolio chart
-  new Chart(document.getElementById('portfolioChart'), {
+  chartInstances.portfolio = new Chart(document.getElementById('portfolioChart'), {
     type: 'line',
     data: {
       labels,
@@ -625,7 +664,7 @@ function renderCharts(r) {
   const rateData = sim.rateByAge.filter(d => isFinite(d.rate));
   const cap = r.inputs.withdrawalRate;
 
-  new Chart(document.getElementById('withdrawalChart'), {
+  chartInstances.withdrawal = new Chart(document.getElementById('withdrawalChart'), {
     type: 'bar',
     data: {
       labels: rateData.map(d => d.age),
