@@ -179,16 +179,13 @@ function computeSuggestions(inp, yearsToFire) {
       if (hi / base <= 1.0) result.incomeBoost = Math.ceil(hi / 1000) * 1000;
     }
 
-  }
-
   } else if (!inp.isEarning) {
     // ── Not earning: check if spending cuts alone can close the gap ──
-    const maxCut = inp.currentSpend * 0.6; // test up to a 60% lifestyle cut
+    const maxCut = inp.currentSpend * 0.6;
     const ratioAtMax = (inp.currentSpend - maxCut) / inp.currentSpend;
     const testMin = findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - maxCut, peakSpend: inp.peakSpend * ratioAtMax });
 
     if (testMin <= inp.netWorth) {
-      // A spend cut CAN close the gap — binary search for the minimum cut needed
       let lo = 0, hi = maxCut;
       for (let i = 0; i < 35; i++) {
         const mid = (lo + hi) / 2;
@@ -201,12 +198,12 @@ function computeSuggestions(inp, yearsToFire) {
         result.spendCut = cut;
         result.easiest = 'spend';
       } else {
-        result.needsIncome = true; // cut required is too large to be realistic
+        result.needsIncome = true;
       }
     } else {
-      // No amount of reasonable spending cuts will get there — need income
       result.needsIncome = true;
     }
+  }
 
   // ── Easiest lever: lowest relative effort ──
   const scores = {};
