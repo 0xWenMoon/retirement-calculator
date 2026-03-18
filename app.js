@@ -196,6 +196,28 @@ function parseMoneyInput(val) {
   return parseFloat(val.replace(/[^0-9.-]/g, '')) || 0;
 }
 
+// Attach to a money input: blocks non-numeric keys, formats with commas live
+function attachMoneyInput(el) {
+  el.addEventListener('keydown', (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End'];
+    if (allowed.includes(e.key)) return;
+    if (e.key === '.' && !el.value.includes('.')) return;
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  });
+
+  el.addEventListener('input', () => {
+    const raw = el.value.replace(/[^0-9.]/g, '');
+    const parts = raw.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formatted = parts.slice(0, 2).join(raw.includes('.') ? '.' : '');
+    // Preserve cursor offset from end
+    const endOffset = el.value.length - el.selectionEnd;
+    el.value = formatted;
+    const newPos = Math.max(0, formatted.length - endOffset);
+    el.setSelectionRange(newPos, newPos);
+  });
+}
+
 // ─── Step Navigation ──────────────────────────────────────────────────────────
 
 function goToStep(n) {
@@ -282,14 +304,14 @@ function renderStep1() {
       <label>Current investable net worth</label>
       <div class="input-prefix">
         <span>$</span>
-        <input type="text" id="netWorth" value="${i.netWorth > 0 ? i.netWorth.toLocaleString() : ''}" placeholder="e.g. 250,000">
+        <input type="text" id="netWorth" class="money-input" value="${i.netWorth > 0 ? i.netWorth.toLocaleString() : ''}" placeholder="e.g. 250,000">
       </div>
     </div>
     <div class="form-group">
       <label>Current monthly spend</label>
       <div class="input-prefix">
         <span>$</span>
-        <input type="text" id="currentSpend" value="${i.currentSpend > 0 ? i.currentSpend.toLocaleString() : ''}" placeholder="e.g. 5,000">
+        <input type="text" id="currentSpend" class="money-input" value="${i.currentSpend > 0 ? i.currentSpend.toLocaleString() : ''}" placeholder="e.g. 5,000">
       </div>
     </div>
     ${stepButtons(false, true)}
@@ -311,7 +333,7 @@ function renderStep2() {
       <p class="field-hint">Think: family, mortgage, lifestyle peak — typically ages 35–50</p>
       <div class="input-prefix">
         <span>$</span>
-        <input type="text" id="peakSpend" value="${displayVal.toLocaleString()}" placeholder="e.g. 10,000">
+        <input type="text" id="peakSpend" class="money-input" value="${displayVal.toLocaleString()}" placeholder="e.g. 10,000">
       </div>
       <p class="field-hint muted">Pre-filled at 2× your current spend (${fmt(suggested)}/mo)</p>
     </div>
@@ -342,7 +364,7 @@ function renderStep3() {
         <label>After-tax annual income</label>
         <div class="input-prefix">
           <span>$</span>
-          <input type="text" id="annualIncome" value="${i.annualIncome > 0 ? i.annualIncome.toLocaleString() : ''}" placeholder="e.g. 150,000">
+          <input type="text" id="annualIncome" class="money-input" value="${i.annualIncome > 0 ? i.annualIncome.toLocaleString() : ''}" placeholder="e.g. 150,000">
         </div>
       </div>
       <div class="form-group">
@@ -400,7 +422,7 @@ function stepButtons(showBack, showNext, nextLabel = 'Continue') {
 }
 
 function attachStepListeners() {
-  // nothing extra needed — inline handlers cover it
+  document.querySelectorAll('.money-input').forEach(attachMoneyInput);
 }
 
 function toggleEarning(val) {
