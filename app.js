@@ -59,7 +59,8 @@ function simulate(startNestEgg, inputs) {
 
   for (let age = currentAge; age <= modelToAge; age++) {
     const spend = annualSpend(age, cs, ps);
-    const floor = spend / withdrawalRate;
+    const netWithdrawal = age < retireAge ? Math.max(0, spend - annualIncome) : spend;
+    const floor = netWithdrawal / withdrawalRate;
 
     // Accumulation phase
     if (age < retireAge) {
@@ -68,7 +69,7 @@ function simulate(startNestEgg, inputs) {
       portfolio = portfolio * (1 + growthRate) - spend;
     }
 
-    const rate = portfolio > 0 ? spend / portfolio : Infinity;
+    const rate = portfolio > 0 ? netWithdrawal / portfolio : (netWithdrawal > 0 ? Infinity : 0);
 
     portfolioByAge.push({ age, value: portfolio });
     floorByAge.push({ age, value: floor });
