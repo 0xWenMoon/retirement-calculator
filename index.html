@@ -469,6 +469,90 @@
     .app-footer a { color: var(--accent); text-decoration: none; }
     .app-footer a:hover { text-decoration: underline; }
 
+    /* ── Intro page ── */
+    .intro-page {
+      width: 100%;
+      max-width: 560px;
+      padding: 20px 0 0;
+    }
+
+    .intro-headline {
+      font-family: 'Syne', sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 18px;
+    }
+
+    .intro-headline span { color: var(--accent); }
+
+    @media (max-width: 480px) {
+      .intro-headline { font-size: 32px; letter-spacing: -1px; }
+    }
+
+    .intro-sub {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 40px;
+      max-width: 460px;
+    }
+
+    .intro-features {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 40px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .intro-feature {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .intro-feature:last-child { border-bottom: none; }
+
+    .intro-feature-icon {
+      font-size: 18px;
+      line-height: 1;
+      margin-top: 2px;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+
+    .intro-feature-text strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .intro-feature-text span {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .intro-cta-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .intro-note {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
     /* ── Suggestions ── */
     .suggestions-block {
       background: var(--surface);
@@ -542,8 +626,43 @@
       </div>
     </div>
 
+    <!-- Intro -->
+    <div id="intro" class="intro-page">
+      <h1 class="intro-headline">Find out when you can <span>actually</span> retire.</h1>
+      <p class="intro-sub">No guesses. No optimism. Just your numbers, a realistic spending model, and an honest answer in under 2 minutes.</p>
+
+      <div class="intro-features">
+        <div class="intro-feature">
+          <div class="intro-feature-icon">◎</div>
+          <div class="intro-feature-text">
+            <strong>Your FIRE number</strong>
+            <span>The exact nest egg you need — accounting for how spending actually changes across your life.</span>
+          </div>
+        </div>
+        <div class="intro-feature">
+          <div class="intro-feature-icon">◈</div>
+          <div class="intro-feature-text">
+            <strong>When you can retire</strong>
+            <span>A realistic retire age based on your income, savings rate, and lifestyle trajectory.</span>
+          </div>
+        </div>
+        <div class="intro-feature">
+          <div class="intro-feature-icon">✦</div>
+          <div class="intro-feature-text">
+            <strong>What to fix</strong>
+            <span>If you're not on track, we'll tell you the one or two moves that would actually change the outcome.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="intro-cta-wrap">
+        <button class="btn-primary" onclick="startApp()" style="padding:14px 36px;font-size:16px">Run the numbers →</button>
+        <span class="intro-note">3 questions. 30 seconds.</span>
+      </div>
+    </div>
+
     <!-- Questionnaire -->
-    <div id="questionnaire" style="width:100%;max-width:560px">
+    <div id="questionnaire" style="width:100%;max-width:560px;display:none">
       <!-- Progress -->
       <div class="progress-bar-wrap">
         <div class="progress-track">
