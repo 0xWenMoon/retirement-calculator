@@ -852,7 +852,6 @@ function showResults() {
     <div class="results-container" id="results-page">
       <div class="results-header">
         <button class="btn-ghost" onclick="resetApp()">← Recalculate</button>
-        <h1 class="brand">Retirement <span>Calculator</span></h1>
       </div>
 
       <div id="hero-wrap">${heroHTML(r)}</div>
