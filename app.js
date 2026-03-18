@@ -129,7 +129,8 @@ function computeResults() {
   const peakFloor = Math.max(...minSim.floorByAge.map(d => d.value));
 
   const currentAnnualSpend = annualSpend(inp.currentAge, inp.currentSpend, inp.peakSpend);
-  const effectiveWithdrawalRate = inp.netWorth > 0 ? currentAnnualSpend / inp.netWorth : Infinity;
+  const currentNetWithdrawal = inp.isEarning ? Math.max(0, currentAnnualSpend - inp.annualIncome) : currentAnnualSpend;
+  const effectiveWithdrawalRate = inp.netWorth > 0 ? currentNetWithdrawal / inp.netWorth : (currentNetWithdrawal > 0 ? Infinity : 0);
 
   const gap = minNestEgg - inp.netWorth;
   const canRetireNow = gap <= 0;
