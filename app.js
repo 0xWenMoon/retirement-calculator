@@ -251,9 +251,19 @@ function computeResults(skipSuggestions = false) {
     ? (state.results?.suggestions ?? null)
     : computeSuggestions(inp, yearsToFire);
 
+  // Withdrawal tier — computed from max rate during retirement phase of simulation
+  const retireAge = inp.isEarning ? inp.currentAge + inp.earningYears : inp.currentAge;
+  const retirementRates = sim.rateByAge.filter(d => d.age >= retireAge && isFinite(d.rate) && d.rate > 0);
+  const maxWithdrawalRate = retirementRates.length > 0 ? Math.max(...retirementRates.map(d => d.rate)) : 0;
+  const withdrawalTier = maxWithdrawalRate <= 0.03  ? 'super-safe'
+    : maxWithdrawalRate <= 0.035 ? 'safe-barely'
+    : maxWithdrawalRate <= 0.04  ? 'hairy'
+    : 'unsafe';
+
   return {
     minNestEgg, gap, gapPct, peakFloor, projectedAtRetire,
     canRetireNow, verdict, yearsToFire, extraYearsNeeded,
+    maxWithdrawalRate, withdrawalTier,
     suggestions, sim, minSim,
     inputs: { ...inp },
   };
@@ -796,6 +806,14 @@ function suggestionsHTML(r) {
 }
 
 function metricsHTML(r) {
+  const tierMeta = {
+    'super-safe':  { label: 'Super safe',               cls: 'metric-green', detail: 'Max withdrawal never exceeds 3%' },
+    'safe-barely': { label: 'Safe, but barely',         cls: 'metric-amber', detail: `Peaks at ${fmtPct(r.maxWithdrawalRate)} — just above 3%` },
+    'hairy':       { label: 'Could be hairy',           cls: 'metric-amber', detail: `Peaks at ${fmtPct(r.maxWithdrawalRate)} — above 3.5%` },
+    'unsafe':      { label: "Can't retire comfortably", cls: 'metric-red',   detail: `Peaks at ${fmtPct(r.maxWithdrawalRate)} — above 4%` },
+  };
+  const tier = tierMeta[r.withdrawalTier];
+
   return `
     <div class="metrics-grid">
       <div class="metric-card">
@@ -810,6 +828,11 @@ function metricsHTML(r) {
         <div class="metric-label">Peak nest egg floor</div>
         <div class="metric-value">${fmt(r.peakFloor)}</div>
         <div class="metric-sub">Required at peak spending age</div>
+      </div>
+      <div class="metric-card ${tier.cls}">
+        <div class="metric-label">Retirement safety</div>
+        <div class="metric-value metric-value-sm">${tier.label}</div>
+        <div class="metric-sub">${tier.detail}</div>
       </div>
       ${r.projectedAtRetire !== null ? `
       <div class="metric-card ${r.projectedAtRetire >= r.minNestEgg ? 'metric-green' : 'metric-red'}">
@@ -858,13 +881,6 @@ function showResults() {
             </div>
           </div>
           <div class="form-group">
-            <label>Max withdrawal rate cap</label>
-            <div class="slider-row">
-              <input type="range" id="a-withdrawalRate" min="2" max="6" step="0.1" value="${(r.inputs.withdrawalRate * 100).toFixed(1)}" oninput="document.getElementById('a-wdDisplay').textContent=this.value+'%';refreshResults()">
-              <span class="slider-val" id="a-wdDisplay">${(r.inputs.withdrawalRate * 100).toFixed(1)}%</span>
-            </div>
-          </div>
-          <div class="form-group">
             <label>Model to age</label>
             <div class="slider-row">
               <input type="range" id="a-modelToAge" min="75" max="100" value="${r.inputs.modelToAge}" oninput="document.getElementById('a-ageToDisplay').textContent=this.value;refreshResults()">
@@ -892,12 +908,10 @@ function showResults() {
 function refreshResults() {
   // Read assumption sliders back into state
   const g = document.getElementById('a-growthRate');
-  const w = document.getElementById('a-withdrawalRate');
   const m = document.getElementById('a-modelToAge');
-  if (!g || !w || !m) return;
+  if (!g || !m) return;
 
   state.inputs.growthRate = parseFloat(g.value) / 100;
-  state.inputs.withdrawalRate = parseFloat(w.value) / 100;
   state.inputs.modelToAge = parseInt(m.value);
 
   const r = computeResults(true); // skip suggestions recompute on slider change
@@ -993,23 +1007,32 @@ function renderCharts(r) {
     },
   });
 
-  // Withdrawal rate chart
+  // Withdrawal rate chart — bars coloured by safety tier
   const rateData = sim.rateByAge.filter(d => isFinite(d.rate));
-  const cap = r.inputs.withdrawalRate;
+
+  function barColor(rate, alpha) {
+    if (rate <= 0.03)  return `rgba(74,222,128,${alpha})`;   // green
+    if (rate <= 0.035) return `rgba(251,191,36,${alpha})`;   // amber
+    if (rate <= 0.04)  return `rgba(251,146,60,${alpha})`;   // orange
+    return `rgba(248,113,113,${alpha})`;                     // red
+  }
+
+  const labelCfg = (content, color) => ({
+    content, display: true, position: 'end', color,
+    backgroundColor: 'transparent', font: { size: 10 },
+  });
 
   chartInstances.withdrawal = new Chart(document.getElementById('withdrawalChart'), {
     type: 'bar',
     data: {
       labels: rateData.map(d => d.age),
-      datasets: [
-        {
-          label: 'Withdrawal rate',
-          data: rateData.map(d => parseFloat((d.rate * 100).toFixed(3))),
-          backgroundColor: rateData.map(d => d.rate > cap ? 'rgba(248,113,113,0.7)' : 'rgba(74,222,128,0.5)'),
-          borderColor: rateData.map(d => d.rate > cap ? '#f87171' : '#4ade80'),
-          borderWidth: 1,
-        },
-      ],
+      datasets: [{
+        label: 'Withdrawal rate',
+        data: rateData.map(d => parseFloat((d.rate * 100).toFixed(3))),
+        backgroundColor: rateData.map(d => barColor(d.rate, 0.6)),
+        borderColor:     rateData.map(d => barColor(d.rate, 1)),
+        borderWidth: 1,
+      }],
     },
     options: {
       responsive: true,
@@ -1017,15 +1040,9 @@ function renderCharts(r) {
         legend: { display: false },
         annotation: {
           annotations: {
-            capLine: {
-              type: 'line',
-              yMin: cap * 100,
-              yMax: cap * 100,
-              borderColor: '#f87171',
-              borderDash: [6, 3],
-              borderWidth: 1.5,
-              label: { content: `${fmtPct(cap)} cap`, display: true, position: 'end', color: '#f87171', backgroundColor: 'transparent' },
-            },
+            line30: { type: 'line', yMin: 3,   yMax: 3,   borderColor: '#4ade80', borderDash: [4,3], borderWidth: 1, label: labelCfg('3%',   '#4ade80') },
+            line35: { type: 'line', yMin: 3.5, yMax: 3.5, borderColor: '#fbbf24', borderDash: [4,3], borderWidth: 1, label: labelCfg('3.5%', '#fbbf24') },
+            line40: { type: 'line', yMin: 4,   yMax: 4,   borderColor: '#f87171', borderDash: [4,3], borderWidth: 1, label: labelCfg('4%',   '#f87171') },
           },
         },
         tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)}%` } },
