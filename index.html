@@ -327,6 +327,146 @@
 
     .spending-curve-note { font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; line-height: 1.7; }
 
+    /* ── Brand tagline ── */
+    .brand-tagline { font-size: 11px; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-top: 3px; }
+
+    /* ── Hero ── */
+    .hero-section {
+      text-align: center;
+      padding: 48px 24px 36px;
+      margin-bottom: 20px;
+    }
+
+    .archetype-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+      color: var(--accent);
+      border: 1px solid rgba(124,106,255,0.3);
+      background: var(--accent-glow);
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    .hero-retire-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 4px;
+    }
+
+    .hero-age {
+      font-family: 'Syne', sans-serif;
+      font-size: 100px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--text);
+      letter-spacing: -5px;
+      margin-bottom: 20px;
+    }
+
+    .hero-age-unit {
+      font-size: 28px;
+      color: var(--accent);
+      letter-spacing: 0;
+      margin-left: 6px;
+      font-weight: 600;
+    }
+
+    .hero-age-now { font-size: 64px; letter-spacing: -2px; color: var(--green); }
+    .hero-age-none { font-size: 48px; letter-spacing: -1px; color: var(--red); }
+
+    .archetype-desc {
+      font-size: 16px;
+      color: var(--muted);
+      font-style: italic;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 480px) {
+      .hero-age { font-size: 72px; letter-spacing: -3px; }
+      .hero-age-unit { font-size: 22px; }
+      .hero-age-now { font-size: 48px; }
+    }
+
+    /* ── Share card ── */
+    .share-card {
+      background: var(--surface2);
+      border: 1px solid rgba(124,106,255,0.25);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .share-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), rgba(124,106,255,0));
+    }
+
+    .share-card-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 18px;
+    }
+
+    .share-stats-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .share-stat { flex: 1; text-align: center; }
+    .share-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+    .share-stat-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); }
+
+    .share-stat-divider { width: 1px; height: 36px; background: var(--border); flex-shrink: 0; }
+
+    .share-progress-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .share-progress-track { flex: 1; height: 5px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+    .share-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #a78bfa); border-radius: 3px; transition: width 0.5s ease; }
+    .share-progress-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    .share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #000;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .share-btn:hover { background: #1a1a1a; border-color: rgba(255,255,255,0.25); }
+
+    /* ── Footer ── */
+    .app-footer {
+      margin-top: 56px;
+      padding-bottom: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .app-footer a { color: var(--accent); text-decoration: none; }
+    .app-footer a:hover { text-decoration: underline; }
+
     /* ── Suggestions ── */
     .suggestions-block {
       background: var(--surface);
@@ -402,7 +542,10 @@
   <div class="app-shell">
     <!-- Brand -->
     <div class="brand-bar">
-      <div class="brand">Retirement <span>Calculator</span></div>
+      <div>
+        <div class="brand">Retirement <span>Calculator</span></div>
+        <div class="brand-tagline">No fluff. Just math.</div>
+      </div>
     </div>
 
     <!-- Questionnaire -->
@@ -427,6 +570,10 @@
 
     <!-- Results -->
     <div id="results" style="width:100%;padding:0 8px"></div>
+
+    <div class="app-footer">
+      Vibecoded by <a href="https://twitter.com/0xWenMoon" target="_blank">@0xWenMoon</a>
+    </div>
   </div>
 
   <script src="app.js"></script>
