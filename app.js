@@ -1063,6 +1063,12 @@ function renderCharts(r) {
   });
 }
 
+function startApp() {
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('questionnaire').style.display = 'block';
+  goToStep(1);
+}
+
 function resetApp() {
   document.getElementById('questionnaire').style.display = 'block';
   document.getElementById('results').style.display = 'none';
@@ -1073,5 +1079,5 @@ function resetApp() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-  renderStep();
+  // Show intro; questionnaire is hidden until user clicks "Run the numbers"
 });
