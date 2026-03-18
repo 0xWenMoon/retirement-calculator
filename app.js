@@ -106,16 +106,120 @@ function findMinNestEgg(inputs) {
   return Math.ceil(hi / 1000) * 1000;
 }
 
+// ─── Suggestion helpers ───────────────────────────────────────────────────────
+
+/**
+ * Can the portfolio reach a self-sustaining FIRE point within maxYears of earning?
+ */
+function canReachFireWithin(inp, maxYears) {
+  let p = inp.netWorth;
+  for (let y = 1; y <= maxYears; y++) {
+    const age = inp.currentAge + y;
+    const spend = annualSpend(age, inp.currentSpend, inp.peakSpend);
+    p = p * (1 + inp.growthRate) + (inp.annualIncome - spend);
+    if (p <= 0) return false;
+    const testMin = findMinNestEgg({ ...inp, currentAge: age, netWorth: p, isEarning: false, earningYears: 0 });
+    if (p >= testMin) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns total years from now until FIRE (null if unreachable in 50y).
+ * Extracted so computeSuggestions can reuse it with modified inputs.
+ */
+function findYearsToFire(inp) {
+  let p = inp.netWorth;
+  for (let y = 1; y <= 50; y++) {
+    const age = inp.currentAge + y;
+    const spend = annualSpend(age, inp.currentSpend, inp.peakSpend);
+    p = p * (1 + inp.growthRate) + (inp.annualIncome - spend);
+    if (p <= 0) return null;
+    const testMin = findMinNestEgg({ ...inp, currentAge: age, netWorth: p, isEarning: false, earningYears: 0 });
+    if (p >= testMin) return y;
+  }
+  return null;
+}
+
+/**
+ * Compute the 3 levers that close the gap and identify the easiest one.
+ * Only called once on initial showResults — not recomputed on assumption slider changes.
+ */
+function computeSuggestions(inp, yearsToFire) {
+  const result = { extraYears: null, spendCut: null, incomeBoost: null, easiest: null };
+
+  if (inp.isEarning && yearsToFire !== null && yearsToFire > inp.earningYears) {
+    // ── Lever 1: extra years beyond plan ──
+    result.extraYears = yearsToFire - inp.earningYears;
+
+    // ── Lever 2: monthly spend cut to fit within earningYears ──
+    const maxCut = inp.currentSpend * 0.7;
+    const ratioAtMax = (inp.currentSpend - maxCut) / inp.currentSpend;
+    if (canReachFireWithin({ ...inp, currentSpend: inp.currentSpend - maxCut, peakSpend: inp.peakSpend * ratioAtMax }, inp.earningYears)) {
+      let lo = 0, hi = maxCut;
+      for (let i = 0; i < 25; i++) {
+        const mid = (lo + hi) / 2;
+        const ratio = (inp.currentSpend - mid) / inp.currentSpend;
+        if (canReachFireWithin({ ...inp, currentSpend: inp.currentSpend - mid, peakSpend: inp.peakSpend * ratio }, inp.earningYears)) hi = mid;
+        else lo = mid;
+      }
+      if (hi / inp.currentSpend <= 0.4) result.spendCut = Math.ceil(hi / 10) * 10;
+    }
+
+    // ── Lever 3: annual income boost to fit within earningYears ──
+    const maxBoost = Math.max(inp.annualIncome * 2, 300000);
+    if (canReachFireWithin({ ...inp, annualIncome: inp.annualIncome + maxBoost }, inp.earningYears)) {
+      let lo = 0, hi = maxBoost;
+      for (let i = 0; i < 25; i++) {
+        const mid = (lo + hi) / 2;
+        if (canReachFireWithin({ ...inp, annualIncome: inp.annualIncome + mid }, inp.earningYears)) hi = mid;
+        else lo = mid;
+      }
+      const base = inp.annualIncome || 80000;
+      if (hi / base <= 1.0) result.incomeBoost = Math.ceil(hi / 1000) * 1000;
+    }
+
+  } else if (!inp.isEarning) {
+    // ── Not earning: find spend cut to retire now ──
+    const maxCut = inp.currentSpend * 0.8;
+    const ratioAtMax = (inp.currentSpend - maxCut) / inp.currentSpend;
+    const testMin = findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - maxCut, peakSpend: inp.peakSpend * ratioAtMax });
+    if (testMin <= inp.netWorth) {
+      let lo = 0, hi = maxCut;
+      for (let i = 0; i < 35; i++) {
+        const mid = (lo + hi) / 2;
+        const ratio = (inp.currentSpend - mid) / inp.currentSpend;
+        if (findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - mid, peakSpend: inp.peakSpend * ratio }) <= inp.netWorth) hi = mid;
+        else lo = mid;
+      }
+      if (hi / inp.currentSpend <= 0.45) result.spendCut = Math.ceil(hi / 10) * 10;
+    }
+  }
+
+  // ── Easiest lever: lowest relative effort ──
+  const scores = {};
+  if (result.extraYears != null) scores.years = result.extraYears / 5;
+  if (result.spendCut  != null) scores.spend  = (result.spendCut / inp.currentSpend) / 0.3;
+  if (result.incomeBoost != null) scores.income = (result.incomeBoost / (inp.annualIncome || 80000)) / 0.5;
+  const sorted = Object.entries(scores).sort((a, b) => a[1] - b[1]);
+  result.easiest = sorted[0]?.[0] ?? null;
+
+  return result;
+}
+
 // ─── Results computation ──────────────────────────────────────────────────────
 
-function computeResults() {
+function computeResults(skipSuggestions = false) {
   const inp = state.inputs;
   const minNestEgg = findMinNestEgg(inp);
-
-  // Full simulation from current net worth for charts
   const sim = simulate(inp.netWorth, inp);
+  const minSim = simulate(minNestEgg, inp);
+  const peakFloor = Math.max(...minSim.floorByAge.map(d => d.value));
+  const gap = minNestEgg - inp.netWorth;
+  const canRetireNow = gap <= 0;
+  const gapPct = minNestEgg > 0 ? gap / minNestEgg : 0;
 
-  // Projected net worth at end of earning period
+  // Projected net worth at end of earning period (for metrics display)
   let projectedAtRetire = null;
   if (inp.isEarning && inp.earningYears > 0) {
     let p = inp.netWorth;
@@ -127,56 +231,30 @@ function computeResults() {
     projectedAtRetire = p;
   }
 
-  // Find peak floor (max of floor across all ages)
-  const minSim = simulate(minNestEgg, inp);
-  const peakFloor = Math.max(...minSim.floorByAge.map(d => d.value));
+  // Years until FIRE is achievable
+  const yearsToFire = (!canRetireNow && inp.isEarning) ? findYearsToFire(inp) : null;
+  const extraYearsNeeded = (yearsToFire !== null && inp.isEarning) ? Math.max(0, yearsToFire - inp.earningYears) : null;
 
-  const currentAnnualSpend = annualSpend(inp.currentAge, inp.currentSpend, inp.peakSpend);
-  const currentNetWithdrawal = inp.isEarning ? Math.max(0, currentAnnualSpend - inp.annualIncome) : currentAnnualSpend;
-  const effectiveWithdrawalRate = inp.netWorth > 0 ? currentNetWithdrawal / inp.netWorth : (currentNetWithdrawal > 0 ? Infinity : 0);
-
-  const gap = minNestEgg - inp.netWorth;
-  const canRetireNow = gap <= 0;
-
+  // 4-state verdict
   let verdict;
   if (canRetireNow) {
     verdict = 'green';
-  } else if (inp.isEarning && projectedAtRetire !== null && projectedAtRetire >= minNestEgg) {
-    verdict = 'amber';
+  } else if (inp.isEarning && yearsToFire !== null && yearsToFire <= inp.earningYears) {
+    verdict = 'amber-good';
+  } else if (inp.isEarning && yearsToFire !== null) {
+    verdict = 'amber-warn';
   } else {
     verdict = 'red';
   }
 
-  // How many years until nest egg is met (amber path)
-  let yearsToFire = null;
-  if (!canRetireNow && inp.isEarning) {
-    let p = inp.netWorth;
-    for (let y = 1; y <= 50; y++) {
-      const age = inp.currentAge + y;
-      const spend = annualSpend(age, inp.currentSpend, inp.peakSpend);
-      p = p * (1 + inp.growthRate) + (inp.annualIncome - spend);
-      // Check if from this point forward it passes
-      const testInputs = { ...inp, currentAge: age, netWorth: p, isEarning: false, earningYears: 0 };
-      const testMin = findMinNestEgg(testInputs);
-      if (p >= testMin) {
-        yearsToFire = y;
-        break;
-      }
-    }
-  }
+  const suggestions = skipSuggestions
+    ? (state.results?.suggestions ?? null)
+    : computeSuggestions(inp, yearsToFire);
 
   return {
-    minNestEgg,
-    netWorth: inp.netWorth,
-    gap,
-    peakFloor,
-    projectedAtRetire,
-    effectiveWithdrawalRate,
-    canRetireNow,
-    verdict,
-    yearsToFire,
-    sim,
-    minSim,
+    minNestEgg, gap, gapPct, peakFloor, projectedAtRetire,
+    canRetireNow, verdict, yearsToFire, extraYearsNeeded,
+    suggestions, sim, minSim,
     inputs: { ...inp },
   };
 }
@@ -432,28 +510,71 @@ function toggleEarning(val) {
 // ─── Results ──────────────────────────────────────────────────────────────────
 
 function verdictHTML(r) {
+  const s = r.suggestions;
+  const inp = r.inputs;
+  const yr = n => `${n} year${n === 1 ? '' : 's'}`;
+
+  // Build easiest-lever subtitle snippet
+  function easiestSnippet() {
+    if (!s || !s.easiest) return '';
+    if (s.easiest === 'years')  return `Quickest fix: work ${yr(s.extraYears)} longer than planned.`;
+    if (s.easiest === 'spend')  return `Quickest fix: cut ${fmt(s.spendCut)}/mo from spending.`;
+    if (s.easiest === 'income') return `Quickest fix: earn ${fmt(s.incomeBoost)} more per year.`;
+    return '';
+  }
+
+  // Closeness qualifier for amber-warn / red
+  function closenessPrefix() {
+    if (r.gapPct < 0.1) return "You're almost there. ";
+    if (r.gapPct < 0.25) return "You're getting close. ";
+    return '';
+  }
+
   const config = {
     green: {
-      cls: 'verdict-green',
-      icon: '✦',
+      cls: 'verdict-green', icon: '✦',
       title: 'You can retire now.',
-      subtitle: `Your net worth exceeds the minimum nest egg by ${fmt(Math.abs(r.gap))}.`,
+      subtitle: `Your net worth clears the minimum by ${fmt(Math.abs(r.gap))}. Your portfolio is on track to last to age ${inp.modelToAge}.`,
     },
-    amber: {
-      cls: 'verdict-amber',
-      icon: '◈',
-      title: r.yearsToFire !== null ? `${r.yearsToFire} more year${r.yearsToFire === 1 ? '' : 's'} of earning needed.` : "Keep earning — you're on track.",
-      subtitle: r.yearsToFire !== null
-        ? `At your current income and savings rate, you reach FIRE in ${r.yearsToFire} year${r.yearsToFire === 1 ? '' : 's'}.`
-        : `Your projected net worth at retirement may not clear the constraint — review below.`,
+    'amber-good': {
+      cls: 'verdict-amber', icon: '◈',
+      title: (() => {
+        const ahead = inp.earningYears - r.yearsToFire;
+        if (ahead >= 2) return `On track — you'll hit FIRE ${yr(ahead)} ahead of plan.`;
+        if (ahead === 1) return `On track — you'll hit FIRE 1 year ahead of plan.`;
+        return `Right on schedule.`;
+      })(),
+      subtitle: `Keep your current plan. Your projected portfolio at retirement clears the minimum by ${fmt(Math.max(0, r.projectedAtRetire - r.minNestEgg))}.`,
+    },
+    'amber-warn': {
+      cls: 'verdict-amber', icon: '◈',
+      title: (() => {
+        const extra = r.extraYearsNeeded;
+        if (s?.easiest === 'spend' && s.spendCut)  return `Cut ${fmt(s.spendCut)}/mo and you're on schedule.`;
+        if (s?.easiest === 'income' && s.incomeBoost) return `Earn ${fmt(s.incomeBoost)} more per year and you're on schedule.`;
+        return `${yr(extra)} more than you planned.`;
+      })(),
+      subtitle: (() => {
+        const extra = r.extraYearsNeeded;
+        const parts = [];
+        if (s?.easiest !== 'years'   && s?.extraYears)   parts.push(`work ${yr(s.extraYears)} longer`);
+        if (s?.easiest !== 'spend'   && s?.spendCut)     parts.push(`cut ${fmt(s.spendCut)}/mo`);
+        if (s?.easiest !== 'income'  && s?.incomeBoost)  parts.push(`earn ${fmt(s.incomeBoost)} more/yr`);
+        const snippet = easiestSnippet();
+        const alts = parts.length ? ` Alternatives: ${parts.join(', or ')}.` : '';
+        return `${closenessPrefix()}${snippet}${alts}`;
+      })(),
     },
     red: {
-      cls: 'verdict-red',
-      icon: '⚠',
+      cls: 'verdict-red', icon: '⚠',
       title: `You need ${fmt(r.gap)} more.`,
-      subtitle: `Your current trajectory doesn't reach the minimum nest egg. Increase income, reduce spend, or extend your earning years.`,
+      subtitle: (() => {
+        if (s?.spendCut) return `${closenessPrefix()}Cut ${fmt(s.spendCut)}/mo and your current net worth covers the minimum nest egg. Or start earning to close the gap faster.`;
+        return `${closenessPrefix()}Your spending level requires significant changes — reduce lifestyle costs or add income to get on track.`;
+      })(),
     },
   };
+
   const v = config[r.verdict];
   return `
     <div class="verdict-banner ${v.cls}">
@@ -462,6 +583,49 @@ function verdictHTML(r) {
         <div class="verdict-title">${v.title}</div>
         <div class="verdict-sub">${v.subtitle}</div>
       </div>
+    </div>`;
+}
+
+function suggestionsHTML(r) {
+  const s = r.suggestions;
+  if (!s || (!s.extraYears && !s.spendCut && !s.incomeBoost)) return '';
+
+  const yr = n => `${n} year${n === 1 ? '' : 's'}`;
+  const inp = r.inputs;
+
+  const levers = [];
+  if (s.extraYears != null) levers.push({
+    key: 'years',
+    label: `Work ${yr(s.extraYears)} longer than planned`,
+    detail: `Retire at ${inp.currentAge + inp.earningYears + s.extraYears} instead of ${inp.currentAge + inp.earningYears}`,
+  });
+  if (s.spendCut != null) levers.push({
+    key: 'spend',
+    label: `Cut ${fmt(s.spendCut)}/mo from current spending`,
+    detail: `${fmt(inp.currentSpend)}/mo → ${fmt(inp.currentSpend - s.spendCut)}/mo (${Math.round(s.spendCut / inp.currentSpend * 100)}% reduction)`,
+  });
+  if (s.incomeBoost != null) levers.push({
+    key: 'income',
+    label: `Earn ${fmt(s.incomeBoost)} more per year`,
+    detail: `${fmt(inp.annualIncome)}/yr → ${fmt(inp.annualIncome + s.incomeBoost)}/yr after-tax`,
+  });
+
+  const items = levers.map(l => {
+    const isEasiest = l.key === s.easiest;
+    return `
+      <div class="lever-row ${isEasiest ? 'lever-easiest' : ''}">
+        <div class="lever-dot ${isEasiest ? 'lever-dot-active' : ''}"></div>
+        <div class="lever-body">
+          <div class="lever-label">${l.label}${isEasiest ? '<span class="lever-badge">Easiest</span>' : ''}</div>
+          <div class="lever-detail">${l.detail}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="suggestions-block">
+      <div class="assumptions-title">What would close the gap?</div>
+      ${items}
     </div>`;
 }
 
@@ -503,6 +667,7 @@ function showResults() {
 
       <div id="verdict-wrap">${verdictHTML(r)}</div>
       <div id="metrics-wrap">${metricsHTML(r)}</div>
+      <div id="suggestions-wrap">${suggestionsHTML(r)}</div>
 
       <div class="charts-grid">
         <div class="chart-card">
@@ -568,7 +733,7 @@ function refreshResults() {
   state.inputs.withdrawalRate = parseFloat(w.value) / 100;
   state.inputs.modelToAge = parseInt(m.value);
 
-  const r = computeResults();
+  const r = computeResults(true); // skip suggestions recompute on slider change
   state.results = r;
 
   document.getElementById('verdict-wrap').innerHTML = verdictHTML(r);
