@@ -483,10 +483,6 @@ function showResults() {
           <div class="metric-label">Minimum nest egg needed</div>
           <div class="metric-value">${fmt(r.minNestEgg)}</div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Your current net worth</div>
-          <div class="metric-value">${fmt(r.netWorth)}</div>
-        </div>
         <div class="metric-card ${r.gap > 0 ? 'metric-red' : 'metric-green'}">
           <div class="metric-label">${r.gap > 0 ? 'Gap to FIRE' : 'Surplus above FIRE'}</div>
           <div class="metric-value">${fmt(Math.abs(r.gap))}</div>
@@ -502,11 +498,6 @@ function showResults() {
           <div class="metric-value">${fmt(r.projectedAtRetire)}</div>
           <div class="metric-sub">After ${r.inputs.earningYears} yr${r.inputs.earningYears !== 1 ? 's' : ''} earning</div>
         </div>` : ''}
-        <div class="metric-card ${wrFlag ? 'metric-red' : ''}">
-          <div class="metric-label">Effective withdrawal rate today</div>
-          <div class="metric-value ${wrFlag ? 'text-red' : ''}">${fmtPct(wr)}</div>
-          ${wrFlag ? `<div class="metric-sub text-red">Exceeds ${fmtPct(r.inputs.withdrawalRate)} cap</div>` : ''}
-        </div>
       </div>
 
       <div class="charts-grid">
