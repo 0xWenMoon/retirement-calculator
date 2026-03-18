@@ -179,21 +179,6 @@ function computeSuggestions(inp, yearsToFire) {
       if (hi / base <= 1.0) result.incomeBoost = Math.ceil(hi / 1000) * 1000;
     }
 
-  } else if (!inp.isEarning) {
-    // ── Not earning: find spend cut to retire now ──
-    const maxCut = inp.currentSpend * 0.8;
-    const ratioAtMax = (inp.currentSpend - maxCut) / inp.currentSpend;
-    const testMin = findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - maxCut, peakSpend: inp.peakSpend * ratioAtMax });
-    if (testMin <= inp.netWorth) {
-      let lo = 0, hi = maxCut;
-      for (let i = 0; i < 35; i++) {
-        const mid = (lo + hi) / 2;
-        const ratio = (inp.currentSpend - mid) / inp.currentSpend;
-        if (findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - mid, peakSpend: inp.peakSpend * ratio }) <= inp.netWorth) hi = mid;
-        else lo = mid;
-      }
-      if (hi / inp.currentSpend <= 0.45) result.spendCut = Math.ceil(hi / 10) * 10;
-    }
   }
 
   // ── Easiest lever: lowest relative effort ──
@@ -247,7 +232,9 @@ function computeResults(skipSuggestions = false) {
     verdict = 'red';
   }
 
-  const needsSuggestions = verdict === 'amber-warn' || verdict === 'red';
+  // Suggestions only make sense for earning users who are behind their plan.
+  // Non-earning users can see their gap in the metrics — no levers to compute.
+  const needsSuggestions = verdict === 'amber-warn';
   const suggestions = skipSuggestions
     ? (state.results?.suggestions ?? null)
     : needsSuggestions ? computeSuggestions(inp, yearsToFire) : null;
