@@ -247,9 +247,10 @@ function computeResults(skipSuggestions = false) {
     verdict = 'red';
   }
 
+  const needsSuggestions = verdict === 'amber-warn' || verdict === 'red';
   const suggestions = skipSuggestions
     ? (state.results?.suggestions ?? null)
-    : computeSuggestions(inp, yearsToFire);
+    : needsSuggestions ? computeSuggestions(inp, yearsToFire) : null;
 
   // Withdrawal tier — computed from max rate during retirement phase of simulation
   const retireAge = inp.isEarning ? inp.currentAge + inp.earningYears : inp.currentAge;
