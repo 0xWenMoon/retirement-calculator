@@ -327,6 +327,67 @@
 
     .spending-curve-note { font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; line-height: 1.7; }
 
+    /* ── Suggestions ── */
+    .suggestions-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+
+    .lever-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .lever-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .lever-row:first-of-type { padding-top: 0; }
+
+    .lever-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+      border: 2px solid var(--muted);
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+
+    .lever-dot-active {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .lever-easiest .lever-label { color: var(--text); font-weight: 600; }
+
+    .lever-label {
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .lever-detail { font-size: 12px; color: var(--muted); margin-top: 3px; opacity: 0.7; }
+
+    .lever-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(124,106,255,0.3);
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
     .assumptions-sliders {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
