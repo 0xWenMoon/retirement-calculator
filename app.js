@@ -146,7 +146,7 @@ function findYearsToFire(inp) {
  * Only called once on initial showResults — not recomputed on assumption slider changes.
  */
 function computeSuggestions(inp, yearsToFire) {
-  const result = { extraYears: null, spendCut: null, incomeBoost: null, easiest: null };
+  const result = { extraYears: null, spendCut: null, incomeBoost: null, needsIncome: false, easiest: null };
 
   if (inp.isEarning && yearsToFire !== null && yearsToFire > inp.earningYears) {
     // ── Lever 1: extra years beyond plan ──
@@ -180,6 +180,33 @@ function computeSuggestions(inp, yearsToFire) {
     }
 
   }
+
+  } else if (!inp.isEarning) {
+    // ── Not earning: check if spending cuts alone can close the gap ──
+    const maxCut = inp.currentSpend * 0.6; // test up to a 60% lifestyle cut
+    const ratioAtMax = (inp.currentSpend - maxCut) / inp.currentSpend;
+    const testMin = findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - maxCut, peakSpend: inp.peakSpend * ratioAtMax });
+
+    if (testMin <= inp.netWorth) {
+      // A spend cut CAN close the gap — binary search for the minimum cut needed
+      let lo = 0, hi = maxCut;
+      for (let i = 0; i < 35; i++) {
+        const mid = (lo + hi) / 2;
+        const ratio = (inp.currentSpend - mid) / inp.currentSpend;
+        if (findMinNestEgg({ ...inp, currentSpend: inp.currentSpend - mid, peakSpend: inp.peakSpend * ratio }) <= inp.netWorth) hi = mid;
+        else lo = mid;
+      }
+      const cut = Math.ceil(hi / 10) * 10;
+      if (cut > 0 && cut / inp.currentSpend <= 0.5) {
+        result.spendCut = cut;
+        result.easiest = 'spend';
+      } else {
+        result.needsIncome = true; // cut required is too large to be realistic
+      }
+    } else {
+      // No amount of reasonable spending cuts will get there — need income
+      result.needsIncome = true;
+    }
 
   // ── Easiest lever: lowest relative effort ──
   const scores = {};
@@ -232,9 +259,7 @@ function computeResults(skipSuggestions = false) {
     verdict = 'red';
   }
 
-  // Suggestions only make sense for earning users who are behind their plan.
-  // Non-earning users can see their gap in the metrics — no levers to compute.
-  const needsSuggestions = verdict === 'amber-warn';
+  const needsSuggestions = verdict === 'amber-warn' || verdict === 'red';
   const suggestions = skipSuggestions
     ? (state.results?.suggestions ?? null)
     : needsSuggestions ? computeSuggestions(inp, yearsToFire) : null;
@@ -752,7 +777,7 @@ function verdictHTML(r) {
 
 function suggestionsHTML(r) {
   const s = r.suggestions;
-  if (!s || (!s.extraYears && !s.spendCut && !s.incomeBoost)) return '';
+  if (!s || (!s.extraYears && !s.spendCut && !s.incomeBoost && !s.needsIncome)) return '';
 
   const yr = n => `${n} year${n === 1 ? '' : 's'}`;
   const inp = r.inputs;
@@ -772,6 +797,12 @@ function suggestionsHTML(r) {
     key: 'income',
     label: `Earn ${fmt(s.incomeBoost)} more per year`,
     detail: `${fmt(inp.annualIncome)}/yr → ${fmt(inp.annualIncome + s.incomeBoost)}/yr after-tax`,
+  });
+
+  if (s.needsIncome) levers.push({
+    key: 'income',
+    label: `Start earning — spending cuts alone won't bridge this gap`,
+    detail: `Your FIRE number is ${fmt(r.minNestEgg)}. You need income to close a gap this size.`,
   });
 
   const items = levers.map(l => {
