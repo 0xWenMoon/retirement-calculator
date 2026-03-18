@@ -366,7 +366,7 @@ function renderStep1() {
   const i = state.inputs;
   return `
     <div class="step-header">
-      <div class="step-label">Step 1 of 4</div>
+      <div class="step-label">Step 1 of 3</div>
       <h2>You today</h2>
       <p class="step-desc">Tell us where you're starting from.</p>
     </div>
@@ -401,7 +401,7 @@ function renderStep2() {
   const displayVal = i.peakSpend !== suggested && i.peakSpend > 0 ? i.peakSpend : suggested;
   return `
     <div class="step-header">
-      <div class="step-label">Step 2 of 4</div>
+      <div class="step-label">Step 2 of 3</div>
       <h2>Future spending</h2>
       <p class="step-desc">What's the peak you expect your spending to reach?</p>
     </div>
@@ -422,7 +422,7 @@ function renderStep3() {
   const i = state.inputs;
   return `
     <div class="step-header">
-      <div class="step-label">Step 3 of 4</div>
+      <div class="step-label">Step 3 of 3</div>
       <h2>Income</h2>
       <p class="step-desc">Are you still in your earning years?</p>
     </div>
@@ -505,6 +505,172 @@ function attachStepListeners() {
 function toggleEarning(val) {
   document.getElementById('earning-fields').style.display = val ? 'block' : 'none';
   document.getElementById('earningLabel').textContent = val ? 'Yes' : 'No';
+}
+
+// ─── Archetypes & Hero ────────────────────────────────────────────────────────
+
+function getArchetype(r) {
+  const inp = r.inputs;
+  const spendRatio = inp.peakSpend / Math.max(inp.currentSpend, 1);
+  const gapPct = r.gapPct;
+  const isHighEarner = inp.annualIncome > 150000;
+  const isLeanSpender = inp.currentSpend < 4000;
+  const yr = n => `${n} year${n === 1 ? '' : 's'}`;
+
+  if (r.verdict === 'green') {
+    if (Math.abs(r.gap) > r.minNestEgg * 0.5) return {
+      label: 'The Comfortable Retiree',
+      desc: "You're done. Fully, comfortably, irreversibly done. Most people never get here.",
+    };
+    return {
+      label: 'The Accidental FIRE',
+      desc: "You hit the number without making it your whole personality. Quietly impressive.",
+    };
+  }
+
+  if (gapPct < 0.12) return {
+    label: 'The Almost There',
+    desc: "Close enough to smell it. One or two smart moves and you're done. Don't get complacent now.",
+  };
+
+  if (spendRatio > 2.2 && gapPct > 0.2) return {
+    label: 'The Lifestyle Inflator',
+    desc: "Your future self plans to spend twice what your current self earns. Someone had to say it.",
+  };
+
+  if (r.verdict === 'amber-good') {
+    const ahead = inp.earningYears - r.yearsToFire;
+    if (ahead >= 3) return {
+      label: 'The Overachiever',
+      desc: `You'll hit FIRE ${yr(ahead)} before you planned. Either your math was wrong or you're doing something right.`,
+    };
+    return {
+      label: 'The Steady Builder',
+      desc: "Boring is underrated. You're going to make it and nobody will be surprised.",
+    };
+  }
+
+  if (isHighEarner && gapPct > 0.5) return {
+    label: 'The High Earner, Late Saver',
+    desc: "High income. High spend. Low urgency — until now. The income was never the problem.",
+  };
+
+  if (isLeanSpender && gapPct < 0.5) return {
+    label: 'The Lean FIRE Candidate',
+    desc: "You live cheap and you know it. That's not a bug — it's the whole strategy.",
+  };
+
+  if (r.verdict === 'amber-warn') {
+    const extra = r.extraYearsNeeded;
+    if (extra <= 2) return {
+      label: 'The Almost There',
+      desc: `${yr(extra)} behind your plan. Annoying, not catastrophic. You know what to fix.`,
+    };
+    if (extra <= 5) return {
+      label: 'The Grind It Out',
+      desc: `${yr(extra)} behind your plan. The math doesn't care about your timeline. Adjust or accept.`,
+    };
+    return {
+      label: 'The Long Game',
+      desc: "You've got a long road ahead. That's fine. The people who make it rarely had it handed to them.",
+    };
+  }
+
+  if (!inp.isEarning && gapPct > 0.5) return {
+    label: 'The Dreamer',
+    desc: "The intention is there. The portfolio isn't. These are solvable problems, but not on their own.",
+  };
+
+  return {
+    label: 'The Work in Progress',
+    desc: "Not where you need to be yet — but neither was everyone who made it. The question is what you do next.",
+  };
+}
+
+function getRetireAge(r) {
+  if (r.verdict === 'green') return r.inputs.currentAge;
+  if (r.yearsToFire !== null) return r.inputs.currentAge + r.yearsToFire;
+  return null;
+}
+
+function heroHTML(r) {
+  const archetype = getArchetype(r);
+  const retireAge = getRetireAge(r);
+
+  let agePart;
+  if (r.verdict === 'green') {
+    agePart = `<div class="hero-age hero-age-now">Now.</div>`;
+  } else if (retireAge !== null) {
+    agePart = `<div class="hero-age">${retireAge}<span class="hero-age-unit">yrs</span></div>`;
+  } else {
+    agePart = `<div class="hero-age hero-age-none">No clear path.</div>`;
+  }
+
+  const retireLabel = r.verdict === 'green' ? 'You can retire' : 'Retire at';
+
+  return `
+    <div class="hero-section">
+      <div class="archetype-badge">${archetype.label}</div>
+      <div class="hero-retire-label">${retireLabel}</div>
+      ${agePart}
+      <div class="archetype-desc">"${archetype.desc}"</div>
+    </div>`;
+}
+
+function shareCardHTML(r) {
+  const archetype = getArchetype(r);
+  const retireAge = getRetireAge(r);
+  const progressPct = r.minNestEgg > 0
+    ? Math.min(100, Math.max(0, Math.round((r.inputs.netWorth / r.minNestEgg) * 100)))
+    : 0;
+
+  const retireDisplay = r.verdict === 'green' ? 'Now' : (retireAge ?? '—');
+  const retireUnit = r.verdict === 'green' ? '' : (retireAge ? ' yrs' : '');
+
+  const tweetLines = [
+    `FIRE check — ${archetype.label}`,
+    ``,
+    `Retire: ${r.verdict === 'green' ? 'Now' : retireAge ? `Age ${retireAge}` : 'TBD'}`,
+    `FIRE number: ${fmt(r.minNestEgg)}`,
+    `Progress: ${progressPct}% there`,
+    ``,
+    `What's yours? 👇`,
+    `https://0xwenmoon.github.io/retirement-calculator/`,
+    ``,
+    `via @0xWenMoon`,
+  ];
+  const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetLines.join('\n'))}`;
+
+  return `
+    <div class="share-card">
+      <div class="share-card-label">Your FIRE snapshot</div>
+      <div class="share-stats-row">
+        <div class="share-stat">
+          <div class="share-stat-label">Retire at</div>
+          <div class="share-stat-val">${retireDisplay}${retireUnit}</div>
+        </div>
+        <div class="share-stat-divider"></div>
+        <div class="share-stat">
+          <div class="share-stat-label">FIRE number</div>
+          <div class="share-stat-val">${fmt(r.minNestEgg)}</div>
+        </div>
+        <div class="share-stat-divider"></div>
+        <div class="share-stat">
+          <div class="share-stat-label">Progress</div>
+          <div class="share-stat-val">${progressPct}%</div>
+        </div>
+      </div>
+      <div class="share-progress-wrap">
+        <div class="share-progress-track">
+          <div class="share-progress-fill" style="width:${progressPct}%"></div>
+        </div>
+        <span class="share-progress-label">${progressPct}% to FIRE</span>
+      </div>
+      <button class="share-btn" onclick="window.open('${shareUrl}', '_blank')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        Share your number
+      </button>
+    </div>`;
 }
 
 // ─── Results ──────────────────────────────────────────────────────────────────
@@ -665,7 +831,8 @@ function showResults() {
         <h1 class="brand">Retirement <span>Calculator</span></h1>
       </div>
 
-      <div id="verdict-wrap">${verdictHTML(r)}</div>
+      <div id="hero-wrap">${heroHTML(r)}</div>
+      <div id="share-wrap">${shareCardHTML(r)}</div>
       <div id="metrics-wrap">${metricsHTML(r)}</div>
       <div id="suggestions-wrap">${suggestionsHTML(r)}</div>
 
@@ -736,7 +903,8 @@ function refreshResults() {
   const r = computeResults(true); // skip suggestions recompute on slider change
   state.results = r;
 
-  document.getElementById('verdict-wrap').innerHTML = verdictHTML(r);
+  document.getElementById('hero-wrap').innerHTML = heroHTML(r);
+  document.getElementById('share-wrap').innerHTML = shareCardHTML(r);
   document.getElementById('metrics-wrap').innerHTML = metricsHTML(r);
 
   // Destroy old charts before redrawing
