@@ -887,20 +887,11 @@ function showResults() {
 
       <div class="assumptions-block">
         <div class="assumptions-title">Adjust assumptions</div>
-        <div class="assumptions-sliders">
-          <div class="form-group">
-            <label>Portfolio growth rate</label>
-            <div class="slider-row">
-              <input type="range" id="a-growthRate" min="2" max="15" step="0.5" value="${(r.inputs.growthRate * 100).toFixed(1)}" oninput="document.getElementById('a-growthDisplay').textContent=this.value+'%';refreshResults()">
-              <span class="slider-val" id="a-growthDisplay">${(r.inputs.growthRate * 100).toFixed(1)}%</span>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Model to age</label>
-            <div class="slider-row">
-              <input type="range" id="a-modelToAge" min="75" max="100" value="${r.inputs.modelToAge}" oninput="document.getElementById('a-ageToDisplay').textContent=this.value;refreshResults()">
-              <span class="slider-val" id="a-ageToDisplay">${r.inputs.modelToAge}</span>
-            </div>
+        <div class="form-group" style="margin-bottom:16px">
+          <label>Portfolio growth rate</label>
+          <div class="slider-row">
+            <input type="range" id="a-growthRate" min="2" max="15" step="0.5" value="${(r.inputs.growthRate * 100).toFixed(1)}" oninput="document.getElementById('a-growthDisplay').textContent=this.value+'%';refreshResults()">
+            <span class="slider-val" id="a-growthDisplay">${(r.inputs.growthRate * 100).toFixed(1)}%</span>
           </div>
         </div>
         <div class="spending-curve-note">
@@ -923,11 +914,9 @@ function showResults() {
 function refreshResults() {
   // Read assumption sliders back into state
   const g = document.getElementById('a-growthRate');
-  const m = document.getElementById('a-modelToAge');
-  if (!g || !m) return;
+  if (!g) return;
 
   state.inputs.growthRate = parseFloat(g.value) / 100;
-  state.inputs.modelToAge = parseInt(m.value);
 
   const r = computeResults(true); // skip suggestions recompute on slider change
   state.results = r;
