@@ -270,10 +270,14 @@ function computeResults(skipSuggestions = false) {
     : maxWithdrawalRate <= 0.04  ? 'hairy'
     : 'unsafe';
 
+  // Display-only FIRE number: strips income so the output is consistent regardless of salary
+  const displayMinNestEgg = findMinNestEgg({ ...inp, isEarning: false, earningYears: 0 });
+
   return {
     minNestEgg, gap, gapPct, peakFloor, projectedAtRetire,
     canRetireNow, verdict, yearsToFire, extraYearsNeeded,
     maxWithdrawalRate, withdrawalTier,
+    displayMinNestEgg,
     suggestions, sim, minSim,
     inputs: { ...inp },
   };
@@ -834,7 +838,7 @@ function metricsHTML(r) {
     <div class="metrics-grid">
       <div class="metric-card">
         <div class="metric-label">Minimum nest egg needed</div>
-        <div class="metric-value">${fmt(r.minNestEgg)}</div>
+        <div class="metric-value">${fmt(r.displayMinNestEgg)}</div>
       </div>
       <div class="metric-card ${r.gap > 0 ? 'metric-red' : 'metric-green'}">
         <div class="metric-label">${r.gap > 0 ? 'Gap to FIRE' : 'Surplus above FIRE'}</div>
